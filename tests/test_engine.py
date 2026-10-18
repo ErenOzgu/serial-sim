@@ -1,5 +1,6 @@
 """The simulator on real pseudo-terminals, with the standard library as the client. Linux behaviour of ptys."""
 
+import heapq
 import json
 import os
 import time
@@ -7,13 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from serial_sim.engine import Engine
+from serial_sim.engine import MAX_PENDING_OUTPUT, Device, Engine
 from serial_sim.exchange import Emission, Exchange
 from serial_sim.link import LinkError
 from serial_sim.scenario import parse
 from serial_sim.transcript import Transcript, read
 
-from .util import MODBUS_HEAD, Port, block, req, running
+from .util import MODBUS_HEAD, Port, block, req, running, spec_of
 
 ECHO = '[[device]]\nname = "e"\nkind = "echo"\n'
 
@@ -233,6 +234,42 @@ def test_a_client_that_never_reads_cannot_make_the_simulator_grow_without_bound(
     assert any("is not reading" in e for e in events)
 
 
+def test_the_pending_output_never_exceeds_its_bound_not_even_for_a_moment():
+    class Silent:  # a client that never reads: the link accepts nothing
+        def read(self):
+            return b""
+
+        def write(self, data):
+            return 0
+
+    class Watching(Transcript):
+        def __init__(self):
+            self.seen = []
+            self.events = []
+
+        def rx(self, device, data):
+            pass
+
+        def tx(self, device, data):  # called just before the bytes are added
+            self.seen.append(len(device_under_test._out))
+
+        def event(self, device, text):
+            self.events.append(text)
+
+    transcript = Watching()
+    device_under_test = Device(spec_of('[[device]]\nname = "s"\nkind = "echo"\n'), 0, 1, Silent(), transcript)
+    line = b"x" * 202
+    for n in range(400):  # 80 kB, all due at once
+        heapq.heappush(device_under_test._queue, (0.0, n, line))
+    device_under_test.pump(1.0)
+    assert len(device_under_test._out) == MAX_PENDING_OUTPUT
+    assert max(transcript.seen) <= MAX_PENDING_OUTPUT
+    assert transcript.events == [f"the client is not reading: {400 * 202 - MAX_PENDING_OUTPUT} bytes lost"]
+    device_under_test.pump(2.0)  # nothing new is due: no new event, nothing grows
+    assert len(device_under_test._out) == MAX_PENDING_OUTPUT
+    assert len(transcript.events) == 1
+
+
 # ---- links ----
 
 
@@ -391,7 +428,8 @@ def test_a_client_that_does_not_read_loses_the_newest_bytes_not_the_oldest(tmp_p
         Port(engine.paths["e"]) as port,
     ):
         device = engine.devices[0]
-        device._out += b"A" * 100 + b"B" * 69_900
+        device._out += b"A" * 100
+        heapq.heappush(device._queue, (0.0, 0, b"B" * 69_900))
         device.pump(engine.clock())
         assert len(device._out) <= 65_536
         assert port.read(100)[:100] == b"A" * 100

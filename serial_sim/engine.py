@@ -51,14 +51,15 @@ class Device:
     def pump(self, now: float) -> None:
         self._process(self.behaviour.tick(now), now)
         self._events()
+        lost = 0
         while self._queue and self._queue[0][0] <= now:
             _, _, data = heapq.heappop(self._queue)
             self.transcript.tx(self.spec.name, data)
-            self._out += data
-        if len(self._out) > MAX_PENDING_OUTPUT:
-            lost = len(self._out) - MAX_PENDING_OUTPUT
+            room = MAX_PENDING_OUTPUT - len(self._out)  # the bound holds at every moment
+            self._out += data[:room]
+            lost += max(0, len(data) - room)
+        if lost:
             self.transcript.event(self.spec.name, f"the client is not reading: {lost} bytes lost")
-            del self._out[MAX_PENDING_OUTPUT:]
         if self._out:
             written = self.link.write(bytes(self._out))
             del self._out[:written]

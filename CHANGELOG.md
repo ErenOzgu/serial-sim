@@ -13,6 +13,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/), versions follow [SemVer
   questions this design usually draws.
 - `ROADMAP.md`: the next small steps, in order.
 
+### Fixed
+- A client that never reads: the pending output stayed under its 64 KiB bound only after each pass of the loop; for a
+  moment inside the pass it could be one reply over. It is now bounded at every moment (the newest bytes are still the
+  ones dropped, and the event is written once per pass). A test that watched from another thread caught it on one CI run.
+
 ### Changed
 - Releases: a commit that adds a numbered heading to this file releases that version (the Release workflow tests, builds and
   makes the tag itself). Pushing a `vX.Y.Z` tag or running the workflow by hand still works.
