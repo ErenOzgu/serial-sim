@@ -1,0 +1,25 @@
+# A pull request check for software that talks to a serial device: run its tests against simulated ones.
+# The tests find the port in $SERIAL_SIM_METER.
+name: Serial tests
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install git+https://github.com/ErenOzgu/serial-sim
+      - run: pip install -e '.[dev]'
+      - name: The tests, against a meter that also drops, delays and corrupts replies
+        run: serial-sim exec tests/scenarios/flaky-meter.toml --log "$RUNNER_TEMP/wire.jsonl" -- python -m pytest -q
+      - name: What crossed the wire, when a test failed
+        if: failure()
+        run: serial-sim show "$RUNNER_TEMP/wire.jsonl" --text

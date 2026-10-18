@@ -1,0 +1,14 @@
+meter      rx  11 03 00 00 00 03 07 5b
+meter      tx  11 03 06 08 fd 02 00 00 28 81 8f
+meter      rx  11 06 00 02 00 63 6a b3
+meter      tx  11 06 00 02 00 63 6a b3
+meter      rx  11 03 00 02 00 01 27 5a
+meter      tx  11 03 02 00 63 39 ae
+meter      rx  11 04 00 00 00 01 33 5a
+meter      tx  11 04 02 03 e8 78 4d
+meter      rx  11 04 00 00 00 01 33 5a
+meter      tx  11 04 02 03 e9 b9 8d
+meter      rx  11 03 00 64 00 01 c7 45
+meter      tx  11 83 02 c1 34
+meter      rx  12 03 00 00 00 01 86 a9
+meter      --  ignored a frame for unit 18

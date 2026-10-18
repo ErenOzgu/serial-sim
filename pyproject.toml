@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "serial-sim"
+version = "0.1.0"
+description = "Simulated serial devices on pseudo-terminals (Modbus RTU, scripted consoles, streams) with fault injection, for testing software that talks to hardware without the hardware."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = []
+authors = [{ name = "Eren Özgü" }]
+keywords = ["serial", "modbus", "pty", "simulator", "testing", "fault-injection", "embedded"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: POSIX :: Linux",
+  "Topic :: Software Development :: Testing",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff", "pyserial>=3.5", "pymodbus>=3.8,<4"]
+
+[project.scripts]
+serial-sim = "serial_sim.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["serial_sim*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"serial_sim/scenario.py" = ["E501"]
+"serial_sim/cli.py" = ["E501"]
+"tests/*" = ["E501"]

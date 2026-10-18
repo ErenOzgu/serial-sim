@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check .
+      - run: ruff format --check .
+      - name: shellcheck
+        run: shellcheck examples/demo/generate.sh
+      - name: actionlint
+        run: |
+          set -euo pipefail
+          v=1.7.7
+          base="https://github.com/rhysd/actionlint/releases/download/v${v}"
+          curl -fsSL -o "actionlint.tgz" "${base}/actionlint_${v}_linux_amd64.tar.gz"
+          curl -fsSL -o "checksums.txt" "${base}/actionlint_${v}_checksums.txt"
+          grep " actionlint_${v}_linux_amd64.tar.gz\$" checksums.txt | sed 's/ actionlint_.*/ actionlint.tgz/' | sha256sum -c -
+          tar -xzf actionlint.tgz actionlint
+          ./actionlint
+          ./actionlint examples/ci/serial-tests.yml
+
+  test:
+    name: Tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: sudo apt-get install -y mbpoll
+      - run: pip install -e '.[dev]'
+      - name: All tests; a test that needs mbpoll, pymodbus or pyserial may not be skipped
+        run: SERIAL_SIM_REQUIRE_TOOLS=1 python -m pytest -q -rs -p no:cacheprovider
+
+  machine:
+    name: Real terminals with other people's clients (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-22.04, ubuntu-24.04-arm]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get install -y mbpoll
+      - run: pip install -e '.[dev]'
+      - name: What this machine is
+        run: |
+          set -x
+          uname -srm
+          mbpoll -h 2>&1 | head -n 1 || true
+          pip list 2>/dev/null | grep -i -E "pymodbus|pyserial"
+      - name: pymodbus, mbpoll, pyserial and the pty tests, none of them skipped
+        run: |
+          set -euo pipefail
+          SERIAL_SIM_REQUIRE_TOOLS=1 python -m pytest tests/test_clients.py tests/test_engine.py tests/test_cli.py -v -rs -p no:cacheprovider | tee "$RUNNER_TEMP/live.txt"
+          if grep -E "( SKIPPED|[0-9] skipped)" "$RUNNER_TEMP/live.txt"; then echo "::error::tests were skipped"; exit 1; fi
+      - name: The committed transcript is what the simulator prints today
+        run: examples/demo/generate.sh --check
+      - name: No link or directory is left behind
+        run: |
+          if ls -d "${TMPDIR:-/tmp}"/serial-sim-* 2>/dev/null; then echo "::error::temporary directories left behind"; exit 1; fi
+
+  wheel:
+    name: The installed command works
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get install -y mbpoll
+      - name: Build a wheel and install it into a clean environment, the way a user would
+        run: |
+          set -euo pipefail
+          pip install build
+          python -m build
+          python -m venv "$RUNNER_TEMP/clean"
+          "$RUNNER_TEMP/clean/bin/pip" install dist/*.whl
+          unzip -l dist/*.whl
+          if unzip -l dist/*.whl | grep -q "tests/"; then echo "::error::the wheel contains tests"; exit 1; fi
+      - name: mbpoll talks to a simulated meter through the installed command, from another directory
+        working-directory: ${{ runner.temp }}
+        env:
+          SRC: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          sim="$RUNNER_TEMP/clean/bin/serial-sim"
+          "$sim" --version
+          "$sim" validate "$SRC/examples/demo/meter.toml"
+          "$sim" exec "$SRC/examples/demo/meter.toml" --log "$RUNNER_TEMP/t.jsonl" -- \
+            sh -c "mbpoll -m rtu -a 17 -b 9600 -P none -t 4 -r 1 -c 3 -1 \"\$SERIAL_SIM_METER\" | tee \"$RUNNER_TEMP/mbpoll.txt\""
+          grep -q "^\[1\]:.*2301" "$RUNNER_TEMP/mbpoll.txt"
+          grep -q "^\[3\]:.*40" "$RUNNER_TEMP/mbpoll.txt"
+          "$sim" show "$RUNNER_TEMP/t.jsonl" --no-time | tee "$RUNNER_TEMP/shown.txt"
+          grep -q "^meter *rx  11 03 00 00 00 03 07 5b$" "$RUNNER_TEMP/shown.txt"
+          status=0
+          "$sim" validate /nonexistent.toml 2> "$RUNNER_TEMP/err.txt" || status=$?
+          test "$status" -eq 2
+          status=0
+          "$sim" exec "$SRC/examples/demo/meter.toml" -- sh -c 'exit 7' || status=$?
+          test "$status" -eq 7
+          "$sim" reference faults | grep -q "corrupt-crc"
+          if ls -d "${TMPDIR:-/tmp}"/serial-sim-* 2>/dev/null; then echo "::error::temporary directories left behind"; exit 1; fi

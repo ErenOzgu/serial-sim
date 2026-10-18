@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-labelledby="t d">
+  <title id="t">serial-sim</title>
+  <desc id="d">Simulated serial devices on pseudo-terminals: Modbus RTU slaves, scripted consoles and streams, with fault injection, for testing software that talks to hardware.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1117"/>
+      <stop offset="1" stop-color="#1b2230"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#94a3b8" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#94a3b8" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.035"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="420" fill="url(#bg)"/>
+  <rect width="1280" height="420" fill="url(#grid)"/>
+  <rect width="640" height="420" fill="url(#glow)"/>
+  <g transform="translate(0 0)">
+  <g font-family="'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif">
+    <text x="64" y="128" font-size="13" letter-spacing="3" fill="#94a3b8" font-weight="600">SERIAL  ·  MODBUS RTU  ·  PTY</text>
+    <text x="62" y="196" font-size="58" font-weight="700" fill="#f0f6fc">serial-sim</text>
+    <text x="64" y="244" font-size="22" fill="#9aa7b8">Serial devices on a pseudo-terminal, for tests.</text>
+    <text x="64" y="274" font-size="22" fill="#9aa7b8">Dropped, late, corrupt and split replies on demand.</text>
+    <g font-size="14" font-weight="600" fill="#d0d7de">
+      <rect x="64" y="304" width="118" height="34" rx="17" fill="#ffffff" fill-opacity="0.07" stroke="#ffffff" stroke-opacity="0.14"/><text x="123" y="326" text-anchor="middle">Modbus RTU</text>
+      <rect x="194" y="304" width="160" height="34" rx="17" fill="#ffffff" fill-opacity="0.07" stroke="#ffffff" stroke-opacity="0.14"/><text x="274" y="326" text-anchor="middle">fault injection</text>
+      <rect x="366" y="304" width="126" height="34" rx="17" fill="#ffffff" fill-opacity="0.07" stroke="#ffffff" stroke-opacity="0.14"/><text x="429" y="326" text-anchor="middle">no hardware</text>
+    </g>
+  </g>
+  <g transform="translate(700 56)">
+    <rect width="516" height="308" rx="12" fill="#0b0f14" stroke="#ffffff" stroke-opacity="0.12"/>
+    <rect width="516" height="38" rx="12" fill="#ffffff" fill-opacity="0.05"/>
+    <circle cx="22" cy="19" r="6" fill="#f85149" fill-opacity="0.85"/>
+    <circle cx="42" cy="19" r="6" fill="#d29922" fill-opacity="0.85"/>
+    <circle cx="62" cy="19" r="6" fill="#3fb950" fill-opacity="0.85"/>
+    <text x="258" y="24" text-anchor="middle" font-family="'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12" fill="#8b949e">serial-sim exec meter.toml --log t.jsonl -- mbpoll ...</text>
+    <g font-family="SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="13" fill="#8b949e">
+      <text x="22" y="76" xml:space="preserve"><tspan fill="#8b949e">meter  rx  </tspan><tspan fill="#e6edf3">11 03 00 00 00 03 07 5b</tspan></text>
+      <text x="22" y="102" xml:space="preserve"><tspan fill="#8b949e">meter  tx  </tspan><tspan fill="#3fb950">11 03 06 08 fd 02 00 00 28 81 8f</tspan></text>
+      <text x="22" y="128" xml:space="preserve"><tspan fill="#8b949e">meter  rx  </tspan><tspan fill="#e6edf3">11 03 00 64 00 01 c7 45</tspan></text>
+      <text x="22" y="154" xml:space="preserve"><tspan fill="#8b949e">meter  tx  </tspan><tspan fill="#ff7b72">11 83 02 c1 34</tspan></text>
+      <text x="22" y="180" xml:space="preserve"><tspan fill="#8b949e">meter  --  </tspan><tspan fill="#ff7b72">fault drop on request 3</tspan></text>
+      <text x="22" y="206" xml:space="preserve"><tspan fill="#8b949e">exit 0, links removed</tspan></text>
+    </g>
+  </g>
+  </g>
+</svg>

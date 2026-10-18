@@ -1,0 +1,43 @@
+# The same meter as examples/demo/meter.toml, on a bad line: every kind of thing that goes wrong on RS-485.
+seed = 7
+
+[[device]]
+name = "meter"
+kind = "modbus-rtu"
+unit = 17
+baud = 9600
+
+[[device.block]]
+table = "holding"
+address = 0
+values = [2301, 512, 40]
+
+[[device.block]]
+table = "input"
+address = 0
+values = [1000]
+step = 1
+
+[[device.fault]]            # every 5th request gets no answer
+kind = "drop"
+every = 5
+
+[[device.fault]]            # one request in ten comes back with a wrong checksum
+kind = "corrupt-crc"
+probability = 0.1
+
+[[device.fault]]            # a slow device: the reply of every 4th request is 400 ms late
+kind = "delay"
+ms = 400
+every = 4
+
+[[device.fault]]            # requests 21 to 25 are answered "slave device busy"
+kind = "exception"
+code = 6
+after = 20
+until = 25
+
+[[device.fault]]            # a reply that arrives in two pieces
+kind = "split"
+ms = 30
+probability = 0.1

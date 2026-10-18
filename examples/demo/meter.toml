@@ -1,0 +1,24 @@
+# An energy meter on a Modbus RTU line, address 17.
+seed = 1
+
+[[device]]
+name = "meter"
+kind = "modbus-rtu"
+unit = 17
+baud = 9600
+
+[[device.block]]
+table = "holding"        # register 0: volts x 10, 1: amps x 100, 2: set point (read/write)
+address = 0
+values = [2301, 512, 40]
+
+[[device.block]]
+table = "input"          # register 0 counts up by one every time it is read
+address = 0
+values = [1000]
+step = 1
+
+[[device.block]]
+table = "coil"
+address = 0
+values = [true, false, false, true]

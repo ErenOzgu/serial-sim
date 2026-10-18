@@ -1,0 +1,55 @@
+# The serial console of an embedded Linux board: a boot banner, a login, a shell with a few commands.
+seed = 1
+
+[[device]]
+name = "console"
+kind = "script"
+baud = 115200
+echo = true
+initial = "login"
+greeting = "\r\nU-Boot SPL 2024.01 (Jan 01 2025 - 00:00:00 +0000)\r\nBoot device: eMMC\r\n\r\nBoardOS 1.2 board ttyS0\r\n\r\n"
+
+[device.prompts]
+login = "board login: "
+password = "Password: "
+shell = "root@board:~# "
+
+[[device.rule]]
+state = "login"
+match = "^root$"
+next = "password"
+
+[[device.rule]]
+state = "password"
+match = "^root$"
+send = "\r\nLast login: Thu Jan  1 00:00:00 on ttyS0\r\n"
+next = "shell"
+
+[[device.rule]]
+state = "password"
+match = ".*"
+send = "\r\nLogin incorrect\r\n"
+next = "login"
+
+[[device.rule]]
+state = "shell"
+match = "^uname( -a)?$"
+send = "Linux board 6.1.38 #1 SMP PREEMPT aarch64 GNU/Linux\r\n"
+
+[[device.rule]]
+state = "shell"
+match = "^cat /proc/uptime$"
+send = "128.52 480.17\r\n"
+
+[[device.rule]]
+state = "shell"
+match = "^echo (.*)$"
+send = "${1}\r\n"
+
+[[device.rule]]
+state = "shell"
+match = "^reboot$"
+lines = ["Stopping network", "Stopping logging", "reboot: Restarting system"]
+line_delay_ms = 200
+delay_ms = 50
+next = "login"
