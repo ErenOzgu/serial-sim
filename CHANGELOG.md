@@ -13,6 +13,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/), versions follow [SemVer
   questions this design usually draws.
 - `ROADMAP.md`: the next small steps, in order.
 
+### Changed
+- Releases: a commit that adds a numbered heading to this file releases that version (the Release workflow tests, builds and
+  makes the tag itself). Pushing a `vX.Y.Z` tag or running the workflow by hand still works.
+
 ## 0.1.0 - 2026-10-18
 
 First release: Modbus RTU slaves, scripted consoles, line streams and echo devices on pseudo-terminals; seeded fault
