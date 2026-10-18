@@ -63,6 +63,8 @@ def test_a_complete_scenario_comes_out_typed():
         ('[[device]]\nname = "a"\nkind = "echo"\nunit = 3', "unknown key 'unit'"),
         ('[[device]]\nname = "a"\nkind = "echo"\nbaud = true', "baud must be an int"),
         ('[[device]]\nname = "a"\nkind = "echo"\nlink = 3', "link must be a string"),
+        ('[[device]]\nname = "a"\nkind = "echo"\nbytewise = true', "bytewise needs a baud rate"),
+        ('[[device]]\nname = "a"\nkind = "echo"\nbaud = 9600\nbytewise = "yes"', "bytewise must be a bool"),
         ("device = [1]", "device must be an array of tables"),
     ],
 )
@@ -147,7 +149,9 @@ def test_environment_names():
 def test_sections_list_every_key_the_checks_know():
     keys = {name: {k.name for k in keys} for name, keys in SECTIONS.items()}
     assert {"seed", "device"} <= keys["top level"]
-    assert {"name", "kind", "link", "baud", "char_bits", "fault"} == keys["[[device]], every kind"]
+    assert {"name", "kind", "link", "baud", "char_bits", "bytewise", "fault"} == keys[
+        "[[device]], every kind"
+    ]
 
 
 # ---- whatever the file says, the answer is a Scenario or a ScenarioError ----
@@ -204,3 +208,13 @@ def test_a_pattern_may_have_500_characters_and_not_501():
     assert parse(text(500))
     with pytest.raises(ScenarioError, match="longer than 500"):
         parse(text(501))
+
+
+def test_bytewise_defaults_to_off_and_is_read_when_given():
+    off = parse('[[device]]\nname = "a"\nkind = "echo"\nbaud = 9600')
+    on = parse('[[device]]\nname = "a"\nkind = "echo"\nbaud = 9600\nbytewise = true')
+    assert off.devices[0].bytewise is False and on.devices[0].bytewise is True
+
+
+def test_bytewise_false_without_a_baud_rate_is_harmless():
+    assert parse('[[device]]\nname = "a"\nkind = "echo"\nbytewise = false').devices[0].bytewise is False

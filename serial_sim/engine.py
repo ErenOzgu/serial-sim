@@ -99,6 +99,13 @@ class Device:
             if not part.data:
                 continue
             t += part.delay
+            if spec.baud and spec.bytewise:
+                per_char = spec.char_bits / spec.baud
+                for i in range(len(part.data)):
+                    t += per_char
+                    self._seq += 1
+                    heapq.heappush(self._queue, (t, self._seq, part.data[i : i + 1]))
+                continue
             if spec.baud:
                 t += len(part.data) * spec.char_bits / spec.baud
             self._seq += 1

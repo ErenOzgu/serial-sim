@@ -47,6 +47,15 @@ def test_validate_describes_the_scenario(capsys):
     assert "meter" in out and "modbus-rtu; unit 17, 3 block(s); 9600 baud" in out
 
 
+def test_validate_says_when_a_device_sends_its_characters_one_by_one(tmp_path, capsys):
+    path = scenario(tmp_path, ECHO + "baud = 9600\nbytewise = true\n")
+    assert main(["validate", path]) == 0
+    assert "9600 baud, bytewise" in capsys.readouterr().out
+    (tmp_path / "plain.toml").write_text(ECHO + "baud = 9600\n")
+    assert main(["validate", str(tmp_path / "plain.toml")]) == 0
+    assert "bytewise" not in capsys.readouterr().out
+
+
 def test_validate_lists_the_faults(tmp_path, capsys):
     path = scenario(
         tmp_path, ECHO + '[[device.fault]]\nkind = "drop"\n[[device.fault]]\nkind = "delay"\nms = 1\n'

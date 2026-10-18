@@ -117,7 +117,7 @@ def _describe(sc: Scenario) -> list[str]:
         elif d.kind == "stream":
             bits.append(f"{len(d.lines)} line(s) every {d.interval * 1000:g} ms")
         if d.baud:
-            bits.append(f"{d.baud} baud")
+            bits.append(f"{d.baud} baud" + (", bytewise" if d.bytewise else ""))
         if d.faults:
             bits.append("faults: " + ", ".join(f.kind for f in d.faults))
         out.append(f"{d.name:<12} " + "; ".join(bits))

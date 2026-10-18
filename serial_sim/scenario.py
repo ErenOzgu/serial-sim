@@ -72,6 +72,13 @@ SECTIONS: dict[str, tuple[Key, ...]] = {
             "Bits per character on the wire: start + 8 data + stop = 10; with parity, 11.",
         ),
         Key(
+            "bytewise",
+            "bool",
+            "false",
+            "Needs `baud`. Send a reply one character at a time, each when it would have left the line, "
+            "instead of as one piece when the last one has. For software with a time limit between characters.",
+        ),
+        Key(
             "fault", "array of tables", "", "Fault injection rules, applied to replies. See the fault table."
         ),
     ),
@@ -279,6 +286,7 @@ class DeviceSpec:
     link: str | None = None
     baud: int = 0
     char_bits: int = 10
+    bytewise: bool = False
     faults: tuple[FaultSpec, ...] = ()
     # modbus-rtu
     unit: int = 0
@@ -581,6 +589,9 @@ def _device(raw: object, index: int) -> DeviceSpec:
         _in_range(baud, 50, 4_000_000, "baud", where)
     char_bits = table.get("char_bits", 10)
     _in_range(char_bits, 7, 13, "char_bits", where)
+    bytewise = table.get("bytewise", False)
+    if bytewise and baud == 0:
+        raise ScenarioError(f"{where}: bytewise needs a baud rate (the characters are spaced by it)")
     faults = tuple(_fault(f, kind, f"{where}: fault {i + 1}") for i, f in enumerate(table.get("fault", ())))
     common = {
         "name": name,
@@ -588,6 +599,7 @@ def _device(raw: object, index: int) -> DeviceSpec:
         "link": link,
         "baud": baud,
         "char_bits": char_bits,
+        "bytewise": bytewise,
         "faults": faults,
     }
     if kind == "modbus-rtu":

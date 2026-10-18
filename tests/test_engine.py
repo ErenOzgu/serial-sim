@@ -407,3 +407,51 @@ def test_closing_an_engine_does_not_remove_a_link_that_another_one_made_since(tm
     assert os.readlink(tmp_path / "e") == second.devices[0].link.node
     second.close()
     assert not os.path.lexists(tmp_path / "e")
+
+
+BYTEWISE = ECHO.replace(
+    'kind = "echo"', 'kind = "echo"\nbaud = 100\nbytewise = true'
+)  # ten bits a character: 0.1 s each
+
+
+def test_bytewise_sends_each_character_when_it_would_have_left_the_line(tmp_path):
+    with Engine(parse(BYTEWISE), link_dir=tmp_path) as engine:
+        device = engine.devices[0]
+        device._process([Exchange(request=b"", emissions=[Emission(0.0, b"abc")])], 0.0)
+        queued = sorted(device._queue)
+        assert [(round(t, 3), data) for t, _, data in queued] == [(0.1, b"a"), (0.2, b"b"), (0.3, b"c")]
+
+
+def test_bytewise_keeps_the_delay_of_the_part_and_the_order_of_the_parts(tmp_path):
+    with Engine(parse(BYTEWISE), link_dir=tmp_path) as engine:
+        device = engine.devices[0]
+        device._process([Exchange(request=b"", emissions=[Emission(0.05, b"ab"), Emission(0.0, b"c")])], 0.0)
+        assert [round(t, 3) for t, _, _ in sorted(device._queue)] == [0.15, 0.25, 0.35]
+        device._process([Exchange(request=b"", emissions=[Emission(0.0, b"d")])], 0.1)
+        assert [round(t, 3) for t, _, _ in sorted(device._queue)][
+            -1
+        ] == 0.45  # after the one still being sent
+
+
+def test_without_bytewise_the_same_reply_is_one_piece(tmp_path):
+    whole = BYTEWISE.replace("bytewise = true", "bytewise = false")
+    with Engine(parse(whole), link_dir=tmp_path) as engine:
+        device = engine.devices[0]
+        device._process([Exchange(request=b"", emissions=[Emission(0.0, b"abc")])], 0.0)
+        assert [(round(t, 3), data) for t, _, data in device._queue] == [(0.3, b"abc")]
+
+
+def test_bytewise_characters_really_arrive_one_by_one_and_the_transcript_has_one_record_each(tmp_path):
+    log = tmp_path / "t.jsonl"
+    with running(BYTEWISE, log=log) as (paths, _), Port(paths["e"]) as port:
+        start = time.monotonic()
+        port.write(b"wxyz")
+        first = port.read(1, 2.0)
+        first_at = time.monotonic() - start
+        rest = port.read(3, 2.0)
+        done_at = time.monotonic() - start
+    assert first == b"w" and rest == b"xyz"
+    assert 0.09 <= first_at < 0.3  # as one piece the first byte would not come before 0.4 s
+    assert done_at >= 0.38
+    sent = [r["text"] for r in read(log) if r.get("dir") == "tx"]
+    assert sent == ["w", "x", "y", "z"]
