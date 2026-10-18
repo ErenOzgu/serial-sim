@@ -411,3 +411,9 @@ def test_exec_uses_a_modbus_head_scenario_too(tmp_path):
         "import os; print(os.path.basename(os.environ['SERIAL_SIM_M']))",
     )
     assert r.stdout.strip() == "m"
+
+
+@pytest.mark.parametrize("value", ["=x", "meter=", "="])
+def test_a_link_needs_both_a_name_and_a_path(value):
+    r = run_cli("run", str(METER), "--link", value, timeout=10)
+    assert r.returncode == 2 and "NAME=PATH" in r.stderr

@@ -43,3 +43,9 @@ def test_it_agrees_with_pymodbus_on_random_data():
         data = bytes(rng.randrange(256) for _ in range(rng.randrange(1, 60)))
         # pymodbus returns the checksum as the number whose big-endian bytes are the ones on the wire
         assert append_crc(data)[-2:] == framer.compute_CRC(data).to_bytes(2, "big")
+
+
+def test_two_bytes_are_never_a_frame():
+    assert (
+        not crc_ok(b"") and not crc_ok(b"\x11") and not crc_ok(b"\xff\xff")
+    )  # the checksum of nothing is ffff

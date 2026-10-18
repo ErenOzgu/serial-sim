@@ -195,3 +195,12 @@ def test_the_unit_must_be_a_slave_address(unit):
 def test_the_edges_of_the_unit_range_are_fine(unit):
     text = f'[[device]]\nname = "m"\nkind = "modbus-rtu"\nunit = {unit}\n' + block("holding", 0, [1])
     assert parse(text).devices[0].unit == unit
+
+
+def test_a_pattern_may_have_500_characters_and_not_501():
+    def text(n: int) -> str:
+        return f'[[device]]\nname = "s"\nkind = "script"\n[[device.rule]]\nmatch = "{"a" * n}"\nsend = "x"\n'
+
+    assert parse(text(500))
+    with pytest.raises(ScenarioError, match="longer than 500"):
+        parse(text(501))

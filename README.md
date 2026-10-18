@@ -421,6 +421,12 @@ they fail.
 - **The documentation.** The tables above are generated from the code that checks scenarios, the options and exit
   statuses are compared with the parser, every example scenario is validated, the transcript above is compared with a
   fresh run in CI, and the pytest and workflow examples are the files that are run and linted.
+- **Mutation check, done once by hand.** A script applied 184 small mutations to a copy of the sources (a comparison
+  flipped, a boundary moved by one, a condition removed, two bytes swapped, a fault applied in the wrong order) and ran
+  the whole suite against each. 22 survived the first pass: the largest legal write, a write reaching into a read-only
+  block, what a client that does not read loses, validation of transcript files and a few more. Each got a test and all
+  184 are now caught. The script is not in the repository and not part of CI, so this describes the day it was run, not
+  a guarantee about later changes.
 - **Where.** GitHub's Ubuntu 22.04, 24.04 and 24.04 on arm64 runners, and Python 3.11, 3.12 and 3.13. The wheel is built,
   installed into a clean environment and used from another directory with `mbpoll`.
 

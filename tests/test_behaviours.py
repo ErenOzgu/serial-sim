@@ -284,3 +284,32 @@ def test_echo_sends_back_what_it_gets_and_counts_each_read_as_a_request():
 
 def test_the_kind_decides_the_behaviour():
     assert isinstance(make_behaviour(spec_of(STREAM)), StreamDevice)
+
+
+def test_a_rule_matches_anywhere_in_the_line():
+    dev = make_behaviour(
+        spec_of('[[device]]\nname = "s"\nkind = "script"\n[[device.rule]]\nmatch = "up"\nsend = "ok"\n')
+    )
+    assert replies(dev.feed(b"set-up-now\r", 0.0)) == [b"ok"]
+
+
+def test_a_rule_without_text_still_waits_before_the_new_prompt():
+    text = """
+[[device]]
+name = "s"
+kind = "script"
+initial = "a"
+
+[device.prompts]
+a = "a> "
+b = "b> "
+
+[[device.rule]]
+state = "a"
+match = "^go$"
+delay_ms = 30
+next = "b"
+"""
+    dev = make_behaviour(spec_of(text))
+    (ex,) = dev.feed(b"go\r", 0.0)
+    assert [(e.delay, e.data) for e in ex.emissions] == [(0.03, b"b> ")]

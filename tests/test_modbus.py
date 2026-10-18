@@ -325,3 +325,50 @@ def test_frame_length():
 
 def test_append_crc_is_what_the_slave_checks():
     assert crc_ok(append_crc(b"\x11\x03\x00\x00\x00\x01"))
+
+
+def test_a_write_that_reaches_into_a_read_only_block_is_refused_whole():
+    s = slave(
+        block("holding", 0, [1, 2])
+        + block("holding", 2, [3], "writable = false")
+        + block("coil", 0, [0, 0, 0])
+        + block("coil", 3, [0], "writable = false")
+    )
+    assert ask(s, "10 0001 0002 04 00090009") == exc(16, 2)  # register 1 is writable, register 2 is not
+    assert ask(s, "0f 0002 0002 01 03") == exc(15, 2)  # coil 2 is writable, coil 3 is not
+    assert s.data["holding"] == {0: 1, 1: 2, 2: 3}
+    assert s.data["coil"] == {0: 0, 1: 0, 2: 0, 3: 0}
+
+
+def test_the_largest_legal_writes_work_and_one_more_is_illegal_data_value():
+    s = slave(head="strict_addresses = false\n")
+    coils = f"0f 0000 {1968:04x} {246:02x} " + "ff" * 246
+    assert ask(s, coils) == req(f"0f 0000 {1968:04x}")
+    assert s.data["coil"][1967] == 1
+    assert ask(s, f"0f 0000 {1969:04x} {247:02x} " + "ff" * 247) == exc(15, 3)
+    registers = f"10 0000 {123:04x} {246:02x} " + "0001" * 123
+    assert ask(s, registers) == req(f"10 0000 {123:04x}")
+    assert s.data["holding"][122] == 1
+    assert ask(s, f"10 0000 {124:04x} {248:02x} " + "0001" * 124) == exc(16, 3)
+
+
+@pytest.mark.parametrize(
+    ("pdu", "table", "address", "value"),
+    [
+        ("05 0001 ff00", "coil", 1, 1),
+        ("06 0000 0042", "holding", 0, 0x42),
+        ("0f 0000 0002 01 03", "coil", 1, 1),
+        ("10 0000 0001 02 0042", "holding", 0, 0x42),
+    ],
+)
+def test_a_broadcast_is_obeyed_for_every_kind_of_write_and_never_answered(pdu, table, address, value):
+    s = slave(block("holding", 0, [1]) + block("coil", 0, [0, 0]))
+    assert replies(s.feed(req(pdu, unit=0), 0.0)) == []
+    assert s.data[table][address] == value
+
+
+def test_two_or_three_bytes_that_never_become_a_frame_are_dropped_together():
+    s = slave(block("holding", 0, [1]))
+    assert s.feed(b"\x11\x03\x00", 0.0) == []
+    assert s.tick(s.gap + 0.01) == []
+    assert s.drain_events() == ["dropped 3 bytes: incomplete frame"]

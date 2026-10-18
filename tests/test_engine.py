@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from serial_sim.engine import Engine
+from serial_sim.exchange import Emission, Exchange
 from serial_sim.link import LinkError
 from serial_sim.scenario import parse
 from serial_sim.transcript import Transcript, read
@@ -332,3 +333,77 @@ def test_a_transcript_without_a_file_costs_nothing():
     t.tx("a", b"y")
     t.event("a", "z")
     t.close()
+
+
+# ---- found by mutating the engine: what the tests above did not pin down ----
+
+
+def test_a_script_devices_greeting_and_echo_are_not_answers_that_a_fault_can_drop():
+    text = (
+        '[[device]]\nname = "c"\nkind = "script"\necho = true\ngreeting = "hello\\r\\n"\n'
+        '[[device.rule]]\nmatch = ".*"\nsend = "ok\\r\\n"\n[[device.fault]]\nkind = "drop"\n'
+    )
+    with running(text) as (paths, _), Port(paths["c"]) as port:
+        assert port.read(7) == b"hello\r\n"
+        port.write(b"hi\r")
+        assert port.read(4) == b"hi\r\n"  # the echo arrives, the answer was dropped
+        assert port.read(1, 0.3) == b""
+
+
+def test_a_fault_on_a_request_that_gets_no_reply_is_not_reported(tmp_path):
+    log = tmp_path / "t.jsonl"
+    text = MODBUS_HEAD + block("holding", 0, [1]) + '[[device.fault]]\nkind = "drop"\n'
+    with running(text, log=log) as (paths, _), Port(paths["m"]) as port:
+        port.write(req("06 0000 0042", unit=0))  # a broadcast: obeyed, never answered
+        time.sleep(0.3)
+        port.write(req("03 0000 0001"))
+        time.sleep(0.3)
+    events = [r["event"] for r in read(log) if "event" in r]
+    assert "fault drop on request 1" not in events
+    assert "fault drop on request 2" in events
+
+
+def test_every_device_draws_from_its_own_generator(tmp_path):
+    both = ECHO + '[[device]]\nname = "f"\nkind = "echo"\n'
+    with Engine(parse(both), link_dir=tmp_path) as engine:
+        a, b = engine.devices
+        first = [a.rng.random() for _ in range(3)]
+        assert first != [b.rng.random() for _ in range(3)]
+    with Engine(parse(both), link_dir=tmp_path) as engine:
+        assert [engine.devices[0].rng.random() for _ in range(3)] == first
+    with Engine(parse("seed = 9\n" + both), link_dir=tmp_path) as engine:
+        assert [engine.devices[0].rng.random() for _ in range(3)] != first
+
+
+def test_replies_to_requests_that_arrive_together_are_sent_one_after_the_other(tmp_path):
+    slow = ECHO.replace('kind = "echo"', 'kind = "echo"\nbaud = 100')  # ten bits a character: 0.1 s each
+    with Engine(parse(slow), link_dir=tmp_path) as engine:
+        device = engine.devices[0]
+        device._process([Exchange(request=b"", emissions=[Emission(0.0, b"abcde")])], 0.0)
+        device._process([Exchange(request=b"", emissions=[Emission(0.0, b"fg")])], 0.1)
+        assert [round(t, 3) for t, _, _ in sorted(device._queue)] == [0.5, 0.7]
+
+
+def test_a_client_that_does_not_read_loses_the_newest_bytes_not_the_oldest(tmp_path):
+    log = tmp_path / "t.jsonl"
+    with (
+        Engine(parse(ECHO), link_dir=tmp_path, transcript=Transcript(log)) as engine,
+        Port(engine.paths["e"]) as port,
+    ):
+        device = engine.devices[0]
+        device._out += b"A" * 100 + b"B" * 69_900
+        device.pump(engine.clock())
+        assert len(device._out) <= 65_536
+        assert port.read(100)[:100] == b"A" * 100
+    assert any("4464 bytes lost" in r.get("event", "") for r in read(log))
+
+
+def test_closing_an_engine_does_not_remove_a_link_that_another_one_made_since(tmp_path):
+    first = Engine(parse(ECHO), link_dir=tmp_path)
+    first.open()
+    second = Engine(parse(ECHO), link_dir=tmp_path)
+    second.open()  # replaces the link of the first
+    first.close()
+    assert os.readlink(tmp_path / "e") == second.devices[0].link.node
+    second.close()
+    assert not os.path.lexists(tmp_path / "e")
