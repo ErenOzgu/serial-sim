@@ -32,8 +32,9 @@ README's reference tables, so documentation and behaviour cannot drift.
 ### Faults are seeded
 
 Probabilities and flipped bits come from a random generator seeded per device. The same seed gives the same run, so a
-failure found once can be reproduced, and another seed explores another path. A fault is also selectable by request
-number or by function, for the case where "the third poll fails" is the thing to test.
+failure found once can be reproduced, and another seed explores another path. A fault can also be chosen by request
+number (`every`, `after`, `until`) or, for Modbus, by function code, for the case where "the third poll fails" is the
+thing to test.
 
 ### A transcript of every byte
 
