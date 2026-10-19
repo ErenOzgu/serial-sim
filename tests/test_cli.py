@@ -56,6 +56,11 @@ def test_validate_says_when_a_device_sends_its_characters_one_by_one(tmp_path, c
     assert "bytewise" not in capsys.readouterr().out
 
 
+def test_validate_says_how_much_jitter_a_device_has(tmp_path, capsys):
+    assert main(["validate", scenario(tmp_path, ECHO + "jitter_ms = 12.5\n")]) == 0
+    assert "jitter up to 12.5 ms" in capsys.readouterr().out
+
+
 def test_validate_lists_the_faults(tmp_path, capsys):
     path = scenario(
         tmp_path, ECHO + '[[device.fault]]\nkind = "drop"\n[[device.fault]]\nkind = "delay"\nms = 1\n'

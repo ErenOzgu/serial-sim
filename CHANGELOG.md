@@ -5,6 +5,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/), versions follow [SemVer
 ## Unreleased
 
 ### Added
+- `jitter_ms` on a device: each reply waits a random extra time of 0 up to that many milliseconds, drawn from its own
+  seeded generator (same seed, same delays; the choice of faults is unchanged). Echo, greetings and prompts are not
+  delayed. `validate` shows it.
 - `bytewise = true` on a device (needs `baud`): a reply is sent one character at a time, each when it would have left
   the line, instead of as one piece. The transcript has one record per character. For software with a time limit
   between characters.

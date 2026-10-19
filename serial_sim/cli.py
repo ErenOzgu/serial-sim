@@ -118,6 +118,8 @@ def _describe(sc: Scenario) -> list[str]:
             bits.append(f"{len(d.lines)} line(s) every {d.interval * 1000:g} ms")
         if d.baud:
             bits.append(f"{d.baud} baud" + (", bytewise" if d.bytewise else ""))
+        if d.jitter:
+            bits.append(f"jitter up to {d.jitter * 1000:g} ms")
         if d.faults:
             bits.append("faults: " + ", ".join(f.kind for f in d.faults))
         out.append(f"{d.name:<12} " + "; ".join(bits))

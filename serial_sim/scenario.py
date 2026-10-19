@@ -79,6 +79,14 @@ SECTIONS: dict[str, tuple[Key, ...]] = {
             "instead of as one piece when the last one has. For software with a time limit between characters.",
         ),
         Key(
+            "jitter_ms",
+            "number",
+            "0",
+            "Each reply waits a random extra time from 0 up to this many milliseconds before it starts, drawn from "
+            "the seeded generator of the device (the same seed gives the same delays). Greetings, prompts and "
+            "echoed characters are not delayed. 0 to 60000.",
+        ),
+        Key(
             "fault", "array of tables", "", "Fault injection rules, applied to replies. See the fault table."
         ),
     ),
@@ -287,6 +295,7 @@ class DeviceSpec:
     baud: int = 0
     char_bits: int = 10
     bytewise: bool = False
+    jitter: float = 0.0  # seconds, at most
     faults: tuple[FaultSpec, ...] = ()
     # modbus-rtu
     unit: int = 0
@@ -592,6 +601,8 @@ def _device(raw: object, index: int) -> DeviceSpec:
     bytewise = table.get("bytewise", False)
     if bytewise and baud == 0:
         raise ScenarioError(f"{where}: bytewise needs a baud rate (the characters are spaced by it)")
+    jitter_ms = table.get("jitter_ms", 0)
+    _in_range(jitter_ms, 0, 60_000, "jitter_ms", where)
     faults = tuple(_fault(f, kind, f"{where}: fault {i + 1}") for i, f in enumerate(table.get("fault", ())))
     common = {
         "name": name,
@@ -600,6 +611,7 @@ def _device(raw: object, index: int) -> DeviceSpec:
         "baud": baud,
         "char_bits": char_bits,
         "bytewise": bytewise,
+        "jitter": float(jitter_ms) / 1000,
         "faults": faults,
     }
     if kind == "modbus-rtu":

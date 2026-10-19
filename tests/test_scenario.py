@@ -65,6 +65,9 @@ def test_a_complete_scenario_comes_out_typed():
         ('[[device]]\nname = "a"\nkind = "echo"\nlink = 3', "link must be a string"),
         ('[[device]]\nname = "a"\nkind = "echo"\nbytewise = true', "bytewise needs a baud rate"),
         ('[[device]]\nname = "a"\nkind = "echo"\nbaud = 9600\nbytewise = "yes"', "bytewise must be a bool"),
+        ('[[device]]\nname = "a"\nkind = "echo"\njitter_ms = -1', "jitter_ms must be between 0 and 60000"),
+        ('[[device]]\nname = "a"\nkind = "echo"\njitter_ms = 70000', "jitter_ms must be between 0 and 60000"),
+        ('[[device]]\nname = "a"\nkind = "echo"\njitter_ms = "x"', "jitter_ms must be a number"),
         ("device = [1]", "device must be an array of tables"),
     ],
 )
@@ -149,7 +152,7 @@ def test_environment_names():
 def test_sections_list_every_key_the_checks_know():
     keys = {name: {k.name for k in keys} for name, keys in SECTIONS.items()}
     assert {"seed", "device"} <= keys["top level"]
-    assert {"name", "kind", "link", "baud", "char_bits", "bytewise", "fault"} == keys[
+    assert {"name", "kind", "link", "baud", "char_bits", "bytewise", "jitter_ms", "fault"} == keys[
         "[[device]], every kind"
     ]
 
@@ -218,3 +221,9 @@ def test_bytewise_defaults_to_off_and_is_read_when_given():
 
 def test_bytewise_false_without_a_baud_rate_is_harmless():
     assert parse('[[device]]\nname = "a"\nkind = "echo"\nbytewise = false').devices[0].bytewise is False
+
+
+def test_jitter_defaults_to_none_and_is_read_in_seconds():
+    off = parse('[[device]]\nname = "a"\nkind = "echo"')
+    on = parse('[[device]]\nname = "a"\nkind = "echo"\njitter_ms = 25')
+    assert off.devices[0].jitter == 0.0 and on.devices[0].jitter == 0.025

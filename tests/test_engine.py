@@ -493,3 +493,71 @@ def test_bytewise_characters_really_arrive_one_by_one_and_the_transcript_has_one
     assert done_at >= 0.38
     sent = [r["text"] for r in read(log) if r.get("dir") == "tx"]
     assert sent == ["w", "x", "y", "z"]
+
+
+JITTER = (
+    'seed = 7\n[[device]]\nname = "j"\nkind = "script"\njitter_ms = 200\n'
+    '[[device.rule]]\nmatch = "^ping$"\nsend = "pong\\r\\n"\n'
+)
+
+
+def _reply_times(text, count, tmp_path):
+    with Engine(parse(text), link_dir=tmp_path) as engine:
+        device = engine.devices[0]
+        times = []
+        for _ in range(count):
+            device._queue.clear()
+            device._tx_free = 0.0
+            device._process([Exchange(request=b"", emissions=[Emission(0.0, b"pong")])], 0.0)
+            times.append(device._queue[0][0])
+        return times
+
+
+def test_jitter_adds_a_random_wait_below_the_limit_and_the_same_seed_repeats_it(tmp_path):
+    first = _reply_times(JITTER, 20, tmp_path)
+    assert all(0.0 <= t <= 0.2 for t in first)
+    assert len(set(first)) > 10  # really random, not one constant
+    assert first == _reply_times(JITTER, 20, tmp_path)
+    assert first != _reply_times(JITTER.replace("seed = 7", "seed = 8"), 20, tmp_path)
+
+
+def test_without_jitter_a_reply_has_no_extra_wait(tmp_path):
+    assert _reply_times(JITTER.replace("jitter_ms = 200", "jitter_ms = 0"), 5, tmp_path) == [0.0] * 5
+
+
+def test_jitter_does_not_change_which_requests_a_fault_hits(tmp_path):
+    fault = '[[device.fault]]\nkind = "drop"\nprobability = 0.5\n'
+
+    def hits(text):
+        with Engine(parse(text), link_dir=tmp_path) as engine:
+            device = engine.devices[0]
+            out = []
+            for _ in range(30):
+                ex = Exchange(request=b"", emissions=[Emission(0.0, b"x")])
+                device._queue.clear()
+                device._process([ex], 0.0)
+                out.append(bool(device._queue))
+            return out
+
+    assert hits(JITTER + fault) == hits(JITTER.replace("jitter_ms = 200", "jitter_ms = 0") + fault)
+
+
+def test_jitter_leaves_echo_and_greetings_alone(tmp_path):
+    text = '[[device]]\nname = "g"\nkind = "script"\njitter_ms = 500\ngreeting = "hi"\necho = true\n'
+    with Engine(parse(text), link_dir=tmp_path) as engine:
+        device = engine.devices[0]
+        device.start(0.0)
+        assert [t for t, _, _ in device._queue] == [0.0]
+
+
+def test_jitter_really_delays_a_reply_through_a_port():
+    text = JITTER.replace("jitter_ms = 200", "jitter_ms = 300").replace("seed = 7", "seed = 3")
+    with running(text) as (paths, _), Port(paths["j"]) as port:
+        waits = []
+        for _ in range(6):
+            start = time.monotonic()
+            port.write(b"ping\r")
+            assert port.read(6, 2.0) == b"pong\r\n"
+            waits.append(time.monotonic() - start)
+    assert max(waits) < 1.0
+    assert max(waits) - min(waits) > 0.03  # with no jitter every wait is the same few milliseconds

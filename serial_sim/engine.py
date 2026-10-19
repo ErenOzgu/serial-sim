@@ -30,6 +30,9 @@ class Device:
         self.transcript = transcript
         self.behaviour = make_behaviour(spec)
         self.rng = random.Random(f"{seed}:{index}:{spec.name}")
+        self.jitter_rng = random.Random(
+            f"{seed}:{index}:{spec.name}:jitter"
+        )  # apart, so faults draw as before
         self.requests = 0
         self._queue: list[tuple[float, int, bytes]] = []
         self._seq = 0
@@ -91,11 +94,11 @@ class Device:
                     names = " + ".join(s.kind for s in hit)
                     self.transcript.event(self.spec.name, f"fault {names} on request {self.requests}")
                     ex = faults.apply(ex, hit, self.behaviour, self.rng)
-            self._schedule(ex, now)
+            self._schedule(ex, now, self.jitter_rng.uniform(0, self.spec.jitter) if ex.faultable else 0.0)
 
-    def _schedule(self, ex: Exchange, now: float) -> None:
+    def _schedule(self, ex: Exchange, now: float, jitter: float = 0.0) -> None:
         spec = self.spec
-        t = max(now, self._tx_free)
+        t = max(now, self._tx_free) + (jitter if ex.emissions else 0.0)
         for part in ex.emissions:
             if not part.data:
                 continue

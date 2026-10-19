@@ -210,6 +210,7 @@ probability = 0.1
 | `baud` | int | `0` | Replies take `length * char_bits / baud` seconds to arrive. 0 means no delay. |
 | `char_bits` | int | `10` | Bits per character on the wire: start + 8 data + stop = 10; with parity, 11. |
 | `bytewise` | bool | `false` | Needs `baud`. Send a reply one character at a time, each when it would have left the line, instead of as one piece when the last one has. For software with a time limit between characters. |
+| `jitter_ms` | number | `0` | Each reply waits a random extra time from 0 up to this many milliseconds before it starts, drawn from the seeded generator of the device (the same seed gives the same delays). Greetings, prompts and echoed characters are not delayed. 0 to 60000. |
 | `fault` | array of tables |  | Fault injection rules, applied to replies. See the fault table. |
 
 #### [[device]] kind = "modbus-rtu"
@@ -438,7 +439,9 @@ they fail.
   neither does the direction control of RS-485 or a transceiver that hears its own transmission.
 - **Timing is approximate.** With `baud` set, a reply is delivered as one piece when its last character would have left
   the line; the characters do not arrive one by one unless the device says `bytewise = true`, which sends each
-  character when it would have left the line (and gives each its own transcript record). A request is seen as the client wrote it, so the gap of 3.5
+  character when it would have left the line (and gives each its own transcript record). Real devices also vary in how
+  long they take to answer; `jitter_ms = 50` adds a random extra wait of 0 to 50 ms to each reply, the same
+  sequence for the same seed. A request is seen as the client wrote it, so the gap of 3.5
   characters that ends a Modbus RTU frame is replaced by `frame_gap_ms`. Timing comes from a Python loop on an ordinary
   Linux machine: a reply is never early and is late by whatever the scheduler adds, normally milliseconds, more on a
   busy machine. It is not a real-time system: it is for testing software against slow and late devices, not
