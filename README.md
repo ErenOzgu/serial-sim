@@ -340,6 +340,8 @@ measured correctly; any other code is only answered after `frame_gap_ms` of sile
 | `--device NAME` | show | Only this device. |
 | `--no-time` | show | Leave out the timestamps, to compare two runs. |
 | `--text` | show | Also show the bytes as text. |
+| `-f`, `--follow` | show | Keep waiting and print records as they are written, like `tail -f`; a half-written line is held back until it is complete. Stop with Ctrl-C (exit status 0). |
+| `--idle-timeout SECONDS` | show | With `--follow`: stop by itself when nothing new has come for this long. |
 
 | Exit status | Meaning |
 | --- | --- |

@@ -5,6 +5,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/), versions follow [SemVer
 ## Unreleased
 
 ### Added
+- `serial-sim show LOG --follow` (`-f`): print the records as they are written, for watching a run from another
+  terminal; a half-written line is held back until it is complete. `--idle-timeout SECONDS` ends it by itself.
 - `jitter_ms` on a device: each reply waits a random extra time of 0 up to that many milliseconds, drawn from its own
   seeded generator (same seed, same delays; the choice of faults is unchanged). Echo, greetings and prompts are not
   delayed. `validate` shows it.

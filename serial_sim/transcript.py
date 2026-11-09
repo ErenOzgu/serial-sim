@@ -56,18 +56,55 @@ def printable(data: bytes) -> str:
     return "".join(out)
 
 
+def _parse(path: str | Path, number: int, line: str) -> dict:
+    try:
+        record = json.loads(line)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{path}:{number}: not JSON: {exc}") from exc
+    if not isinstance(record, dict) or "t" not in record or "device" not in record:
+        raise ValueError(f"{path}:{number}: not a serial-sim transcript line")
+    return record
+
+
 def read(path: str | Path) -> Iterator[dict]:
     with open(path, encoding="utf-8") as f:
         for number, line in enumerate(f, 1):
-            if not line.strip():
+            if line.strip():
+                yield _parse(path, number, line)
+
+
+def follow(
+    path: str | Path,
+    *,
+    poll: float = 0.1,
+    idle_timeout: float | None = None,
+    sleep=time.sleep,
+    clock=time.monotonic,
+) -> Iterator[dict]:
+    """Like `read`, but keep waiting for more: yields the records as they are written.
+
+    A line is used only once it is complete (ends in a newline), so a half-written record is never read.
+    Ends when nothing new has come for `idle_timeout` seconds; without one it never ends by itself.
+    """
+    with open(path, encoding="utf-8") as f:
+        number = 0
+        pending = ""
+        last = clock()
+        while True:
+            chunk = f.readline()
+            if chunk:
+                pending += chunk
+                if not pending.endswith("\n"):
+                    continue  # the rest of the line has not been written yet
+                number += 1
+                line, pending = pending, ""
+                last = clock()
+                if line.strip():
+                    yield _parse(path, number, line)
                 continue
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError as exc:
-                raise ValueError(f"{path}:{number}: not JSON: {exc}") from exc
-            if not isinstance(record, dict) or "t" not in record or "device" not in record:
-                raise ValueError(f"{path}:{number}: not a serial-sim transcript line")
-            yield record
+            if idle_timeout is not None and clock() - last >= idle_timeout:
+                return
+            sleep(poll)
 
 
 def format_record(record: dict, *, show_time: bool = True, show_text: bool = False) -> str:

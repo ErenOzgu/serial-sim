@@ -15,6 +15,7 @@ from pathlib import Path
 from . import __version__
 from .docs import everything, faults_markdown, functions_markdown, reference_markdown
 from .scenario import Scenario, ScenarioError, load
+from .transcript import follow as follow_transcript
 from .transcript import format_record
 from .transcript import read as read_transcript
 
@@ -98,6 +99,15 @@ def build_parser() -> argparse.ArgumentParser:
     show.add_argument("--device", metavar="NAME", help="only this device")
     show.add_argument("--no-time", action="store_true", help="leave out the timestamps (to compare runs)")
     show.add_argument("--text", action="store_true", help="also show the bytes as text")
+    show.add_argument(
+        "-f", "--follow", action="store_true", help="keep waiting for new records, as the file grows"
+    )
+    show.add_argument(
+        "--idle-timeout",
+        type=float,
+        metavar="SECONDS",
+        help="with --follow: stop when nothing new has come for this long (default: wait until interrupted)",
+    )
     return p
 
 
@@ -141,13 +151,24 @@ def _cmd_reference(args: argparse.Namespace) -> int:
 
 
 def _cmd_show(args: argparse.Namespace) -> int:
+    if args.idle_timeout is not None and not args.follow:
+        return _fail("--idle-timeout needs --follow", EXIT_USAGE)
+    if args.idle_timeout is not None and args.idle_timeout < 0:
+        return _fail("--idle-timeout must not be negative", EXIT_USAGE)
     try:
-        for record in read_transcript(args.log):
+        records = (
+            follow_transcript(args.log, idle_timeout=args.idle_timeout)
+            if args.follow
+            else read_transcript(args.log)
+        )
+        for record in records:
             if args.device and record["device"] != args.device:
                 continue
-            print(format_record(record, show_time=not args.no_time, show_text=args.text))
+            print(format_record(record, show_time=not args.no_time, show_text=args.text), flush=args.follow)
     except (OSError, ValueError) as exc:
         return _fail(str(exc), EXIT_USAGE)
+    except KeyboardInterrupt:
+        pass
     except BrokenPipeError:
         os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
     return EXIT_OK

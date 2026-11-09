@@ -44,3 +44,22 @@ def test_a_record_is_formatted_with_or_without_its_time():
     assert format_record(record, show_time=False) == "m          rx  01 02"
     assert format_record(record, show_time=False, show_text=True).endswith("01 02   |\\x01\\x02|")
     assert format_record({"t": 2, "device": "m", "event": "hello"}, show_time=False) == "m          --  hello"
+
+
+def test_follow_waits_for_complete_lines_and_stops_when_idle(tmp_path):
+    from serial_sim.transcript import follow
+
+    path = tmp_path / "t.jsonl"
+    path.write_text('{"t": 0, "device": "a", "event": "one"}\n{"t": 1, "device": "a", "ev')
+    now = [0.0]
+    extra = ['ent": "two"}\n']
+
+    def sleep(seconds):
+        now[0] += seconds
+        if extra:
+            with open(path, "a") as f:
+                f.write(extra.pop())
+
+    got = [r["event"] for r in follow(path, poll=0.5, idle_timeout=2, sleep=sleep, clock=lambda: now[0])]
+    assert got == ["one", "two"]
+    assert now[0] >= 2.5  # it waited the idle time after the last record

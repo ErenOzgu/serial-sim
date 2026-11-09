@@ -110,6 +110,47 @@ def test_show_can_filter_hide_times_and_add_text(tmp_path, capsys):
     ]
 
 
+def test_show_follow_prints_records_written_while_it_runs(tmp_path):
+    log = tmp_path / "t.jsonl"
+    log.write_text(json.dumps({"t": 0.0, "device": "a", "dir": "rx", "hex": "01", "text": ""}) + "\n")
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "serial_sim",
+            "show",
+            str(log),
+            "--follow",
+            "--no-time",
+            "--idle-timeout",
+            "1.5",
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        assert proc.stdout.readline().strip() == "a          rx  01"
+        with open(log, "a") as f:
+            f.write(
+                json.dumps({"t": 1.0, "device": "a", "dir": "tx", "hex": "02", "text": ""})
+            )  # half a line
+            f.flush()
+            time.sleep(0.3)
+            f.write("\n")
+        assert proc.stdout.readline().strip() == "a          tx  02"
+        assert proc.wait(timeout=10) == 0  # idle timeout
+    finally:
+        proc.kill()
+        proc.stdout.close()
+
+
+def test_show_idle_timeout_needs_follow(tmp_path, capsys):
+    log = tmp_path / "t.jsonl"
+    write_log(log)
+    assert main(["show", str(log), "--idle-timeout", "1"]) == 2
+    assert "needs --follow" in capsys.readouterr().err
+
+
 def test_show_refuses_a_file_that_is_not_a_transcript(tmp_path, capsys):
     bad = tmp_path / "x"
     bad.write_text('{"nothing": 1}\n')
