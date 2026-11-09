@@ -4,6 +4,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/), versions follow [SemVer
 
 ## Unreleased
 
+## 0.2.0 - 2026-11-09
+
 ### Added
 - `serial-sim show LOG --follow` (`-f`): print the records as they are written, for watching a run from another
   terminal; a half-written line is held back until it is complete. `--idle-timeout SECONDS` ends it by itself.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "serial-sim"
-version = "0.1.0"
+version = "0.2.0"
 description = "Simulated serial devices on pseudo-terminals (Modbus RTU, scripted consoles, streams) with fault injection, for testing software that talks to hardware without the hardware."
 readme = "README.md"
 requires-python = ">=3.11"
